@@ -70,7 +70,7 @@ public class GuiThemes extends GuiScreenCanvas implements IPEventListener
 		panTxt.setColor(PresetColor.TEXT_HEADER.getColor());
 		inCan.addPanel(panTxt);
 		
-		PanelButton btnExit = new PanelButton(new GuiTransform(GuiAlign.BOTTOM_CENTER, new GuiPadding(-100, -16, -100, 0), 0), 0, QuestTranslation.translate("gui.done"));
+		PanelButton btnExit = new PanelButton(new GuiTransform(GuiAlign.BOTTOM_CENTER, new GuiPadding(-100, -16, -100, -6), 0), 0, QuestTranslation.translate("gui.done"));
 		bgCan.addPanel(btnExit);
 		
 		CanvasScrolling canScroll = new CanvasScrolling(new GuiTransform(GuiAlign.HALF_LEFT, new GuiPadding(0, 16, 16, 16), 0));

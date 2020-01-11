@@ -97,11 +97,11 @@ public class GuiQuestLines extends GuiScreenCanvas implements IPEventListener, I
         
         if(canEdit)
         {
-            cvBackground.addPanel(new PanelButton(new GuiTransform(GuiAlign.BOTTOM_CENTER, -100, -16, 100, 16, 0), 0, QuestTranslation.translate("gui.back")));
-            cvBackground.addPanel(new PanelButton(new GuiTransform(GuiAlign.BOTTOM_CENTER, 0, -16, 100, 16, 0), 3, QuestTranslation.translate("betterquesting.btn.edit")));
+            cvBackground.addPanel(new PanelButton(new GuiTransform(GuiAlign.BOTTOM_CENTER, -100, -16, 100, 20, 0), 0, QuestTranslation.translate("gui.back")));
+            cvBackground.addPanel(new PanelButton(new GuiTransform(GuiAlign.BOTTOM_CENTER, 0, -16, 100, 20, 0), 3, QuestTranslation.translate("betterquesting.btn.edit")));
         } else
         {
-            cvBackground.addPanel(new PanelButton(new GuiTransform(GuiAlign.BOTTOM_CENTER, -100, -16, 200, 16, 0), 0, QuestTranslation.translate("gui.back")));
+            cvBackground.addPanel(new PanelButton(new GuiTransform(GuiAlign.BOTTOM_CENTER, -100, -16, 200, 20, 0), 0, QuestTranslation.translate("gui.back")));
         }
     
         cvLines = new CanvasScrolling(new GuiTransform(GuiAlign.LEFT_EDGE, new GuiPadding(16, 16, -158, 16), 0));
