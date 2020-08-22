@@ -9,7 +9,6 @@ import betterquesting.api2.cache.CapabilityProviderQuestCache;
 import betterquesting.api2.cache.QuestCache;
 import betterquesting.api2.storage.DBEntry;
 import betterquesting.core.BetterQuesting;
-import betterquesting.network.handlers.NetStationEdit;
 import betterquesting.questing.QuestDatabase;
 import betterquesting.storage.QuestSettings;
 import net.minecraft.entity.player.EntityPlayer;
@@ -45,9 +44,9 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
 	private final IFluidHandler fluidHandler;
 	private NonNullList<ItemStack> itemStack = NonNullList.withSize(2, ItemStack.EMPTY);
 	private boolean needsUpdate = false;
-	public UUID owner;
-	public int questID;
-	public int taskID;
+	public UUID owner = null;
+	public int questID = -1;
+	public int taskID = -1;
 	
 	private DBEntry<IQuest> qCached;
 	
@@ -62,33 +61,23 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
 	
 	public DBEntry<IQuest> getQuest()
 	{
-		if(questID < 0)
-		{
-			return null;
-		} else
-		{
-		    if(qCached == null)
-            {
-                IQuest tmp = QuestDatabase.INSTANCE.getValue(questID);
-                if(tmp != null) qCached = new DBEntry<>(questID, QuestDatabase.INSTANCE.getValue(questID));
-            }
-		    
-			return qCached;
-		}
+		if(questID < 0) return null;
+		
+        if(qCached == null)
+        {
+            IQuest tmp = QuestDatabase.INSTANCE.getValue(questID);
+            if(tmp != null) qCached = new DBEntry<>(questID, tmp);
+        }
+        
+        return qCached;
 	}
 	
 	@SuppressWarnings("WeakerAccess")
     public ITask getRawTask()
 	{
 		DBEntry<IQuest> q = getQuest();
-		
-		if(q == null || taskID < 0)
-		{
-			return null;
-		} else
-		{
-			return q.getValue().getTasks().getValue(taskID);
-		}
+		if(q == null || taskID < 0) return null;
+		return q.getValue().getTasks().getValue(taskID);
 	}
 	
 	@SuppressWarnings("WeakerAccess")
@@ -118,10 +107,9 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
 		if(idx < 0 || idx >= itemStack.size())
 		{
 			return ItemStack.EMPTY;
-		} else
-		{
-			return itemStack.get(idx);
 		}
+		
+		return itemStack.get(idx);
 	}
 
 	@Override
@@ -134,11 +122,7 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
 	@Override
 	public void setInventorySlotContents(int idx, @Nonnull ItemStack stack)
 	{
-		if(idx < 0 || idx >= itemStack.size())
-		{
-			return;
-		}
-		
+		if(idx < 0 || idx >= itemStack.size()) return;
 		itemStack.set(idx, stack);
 	}
 
@@ -164,8 +148,7 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
 	@Override
 	public boolean isUsableByPlayer(@Nonnull EntityPlayer player)
 	{
-        return owner == null || player.getUniqueID().equals(owner);
-        
+        return (owner == null || player.getUniqueID().equals(owner)) && player.getDistanceSq(this.pos) < 256;
     }
 
 	@Override
@@ -384,23 +367,6 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
     public void onDataPacket(NetworkManager net, SPacketUpdateTileEntity pkt)
     {
     	this.readFromNBT(pkt.getNbtCompound());
-    }
-    
-    /**
-     * Client: Ignores parameter on client side and sends own data to server for owner setup
-     * Server side: Sends reads any modification data (if specified) then syncs to all nearby clients
-     */
-    public void SyncTile(@Nullable NBTTagCompound data)
-    {
-    	if(!world.isRemote)
-    	{
-    		if(data != null) this.readFromNBT(data); // Note: The handler has already read out the "tile" subtag in advance
-    		this.markDirty();
-    		if(world.getMinecraftServer() != null) world.getMinecraftServer().getPlayerList().sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 128, world.provider.getDimension(), getUpdatePacket());
-    	} else
-    	{
-            NetStationEdit.sendEdit(this.writeToNBT(new NBTTagCompound()));
-    	}
     }
 	
 	@Override

@@ -30,7 +30,6 @@ import betterquesting.network.handlers.NetPartyAction;
 import betterquesting.questing.party.PartyManager;
 import betterquesting.storage.NameCache;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.network.NetworkPlayerInfo;
 import net.minecraft.nbt.NBTTagCompound;
 import org.lwjgl.input.Keyboard;
 
@@ -102,17 +101,10 @@ public class GuiPartyInvite extends GuiScreenCanvas implements IPEventListener
         
         List<String> nameList = new ArrayList<>();
         mc.player.connection.getPlayerInfoMap().forEach((info) -> nameList.add(info.getGameProfile().getName()));
-        for(NetworkPlayerInfo info : mc.player.connection.getPlayerInfoMap())
-        {
-            if(!nameList.contains(info.getGameProfile().getName()))
-            {
-                nameList.add(info.getGameProfile().getName());
-            }
-        }
         
         nameList.removeIf((entry) -> {
            UUID memID = NameCache.INSTANCE.getUUID(entry);
-           return party.getStatus(memID) != null;
+           return memID != null && party.getStatus(memID) != null;
         });
         
         for(int i = 0; i < nameList.size(); i++)
@@ -150,7 +142,7 @@ public class GuiPartyInvite extends GuiScreenCanvas implements IPEventListener
 			payload.setInteger("action", 3);
 			payload.setInteger("partyID", partyID);
 			payload.setString("username", flName.getRawText());
-			payload.setLong("expiry", System.currentTimeMillis() + 60000L);
+			payload.setLong("expiry", 300000L); // 5 minutes in milliseconds
             NetPartyAction.sendAction(payload);
         } else if(btn.getButtonID() == 2 && btn instanceof PanelButtonStorage) // Invite
         {
@@ -158,7 +150,7 @@ public class GuiPartyInvite extends GuiScreenCanvas implements IPEventListener
             payload.setInteger("action", 3);
             payload.setInteger("partyID", partyID);
             payload.setString("username", ((PanelButtonStorage<String>)btn).getStoredValue());
-			payload.setLong("expiry", System.currentTimeMillis() + 60000L);
+			payload.setLong("expiry", 300000L); // 5 minutes in milliseconds
             NetPartyAction.sendAction(payload);
         }
     }

@@ -161,35 +161,4 @@ public final class PacketAssembly
             }
 		}
 	}
-	
-	// TODO: May be unnecessary once optimisations have been completed... or I could make this like a download manager :thinking:
-	/*private static class BQPacketBuffer
-    {
-        private final TreeSet[] buffers;
-        private int pktID = 0;
-        
-        public BQPacketBuffer(int bufferCount)
-        {
-            this.buffers = new TreeSet[bufferCount];
-            for(int i = 0; i < buffers.length; i++) buffers[i] = new TreeSet();
-        }
-        
-        public int getNextID()
-        {
-            pktID = (pktID + 1)%buffers.length;
-            clearBuffer(pktID);
-            return pktID;
-        }
-        
-        public int getCurID()
-        {
-            return this.pktID;
-        }
-        
-        public void clearBuffer(int id)
-        {
-            if(id < 0 || id >= buffers.length) return;
-            buffers[id].clear();
-        }
-    }*/
 }

@@ -25,8 +25,7 @@ public class PacketQuesting implements IMessage
 	{
 	}
 	
-	@SuppressWarnings("WeakerAccess")
-    protected PacketQuesting(NBTTagCompound tags) // Use PacketDataTypes to instantiate new packets
+    public PacketQuesting(NBTTagCompound tags) // Use PacketDataTypes to instantiate new packets
 	{
 		this.tags = tags;
 	}
@@ -59,7 +58,7 @@ public class PacketQuesting implements IMessage
 			
 			if(message == null)
 			{
-				return null;
+			    return null;
 			} else if(!message.hasKey("ID"))
 			{
 				BetterQuesting.logger.log(Level.WARN, "Recieved a packet server side without an ID");

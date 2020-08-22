@@ -62,8 +62,9 @@ public class GuiQuestLines extends GuiScreenCanvas implements IPEventListener, I
     private CanvasQuestLine cvQuest;
     
     // Keep these separate for now
-    private CanvasHoverTray cvChapterTray;
-    private CanvasHoverTray cvDescTray;
+    private static CanvasHoverTray cvChapterTray;
+    private static CanvasHoverTray cvDescTray;
+    private static CanvasHoverTray cvFrame;
     
     private CanvasScrolling cvDesc;
     private PanelVScrollBar scDesc;
@@ -75,6 +76,10 @@ public class GuiQuestLines extends GuiScreenCanvas implements IPEventListener, I
     private PanelTextBox txDesc;
     
     private PanelButton claimAll;
+    
+    private static boolean trayLock = false;
+    
+    private final List<PanelButtonStorage<DBEntry<IQuestLine>>> btnListRef = new ArrayList<>();
     
     public GuiQuestLines(GuiScreen parent)
     {
@@ -103,6 +108,9 @@ public class GuiQuestLines extends GuiScreenCanvas implements IPEventListener, I
         }
         
         boolean canEdit = QuestingAPI.getAPI(ApiReference.SETTINGS).canUserEdit(mc.player);
+        boolean preOpen = false;
+        if(trayLock && cvChapterTray != null && cvChapterTray.isTrayOpen()) preOpen = true;
+        if(trayLock && cvDescTray != null && cvDescTray.isTrayOpen()) preOpen = true;
         
         PEventBroadcaster.INSTANCE.register(this, PEventButton.class);
         
@@ -128,13 +136,24 @@ public class GuiQuestLines extends GuiScreenCanvas implements IPEventListener, I
         
         icoChapter = new PanelGeneric(new GuiTransform(GuiAlign.TOP_LEFT, 40, 8, 16, 16, 0), null);
         cvBackground.addPanel(icoChapter);
+    
+        cvFrame = new CanvasHoverTray(new GuiTransform(GuiAlign.FULL_BOX, new GuiPadding(40 + 150 + 24, 24, 8, 8), 0), new GuiTransform(GuiAlign.FULL_BOX, new GuiPadding(40, 24, 8, 8), 0), PresetTexture.AUX_FRAME_0.getTexture());
+        cvFrame.setManualOpen(true);
+        //CanvasTextured cvFrame = new CanvasTextured(new GuiTransform(GuiAlign.FULL_BOX, new GuiPadding(40, 24, 8, 8), 0), PresetTexture.AUX_FRAME_0.getTexture());
+        cvBackground.addPanel(cvFrame);
+        cvFrame.setTrayState(!preOpen, 1);
+        // These would probably be more annoying than useful if you just wanted to check a tray but not lose your position
+        //cvFrame.setOpenAction(() -> cvQuest.fitToWindow());
+        //cvFrame.setCloseAction(() -> cvQuest.fitToWindow());
         
         // === CHAPTER TRAY ===
         
-        cvChapterTray = new CanvasHoverTray(new GuiTransform(GuiAlign.LEFT_EDGE, new GuiPadding(40, 24, -24, 8), -1), new GuiTransform(GuiAlign.LEFT_EDGE, new GuiPadding(40, 24, -40 - 150 - 24, 8), -1), PresetTexture.PANEL_MAIN.getTexture());
+        boolean oldState1 = trayLock && cvChapterTray != null && cvChapterTray.isTrayOpen();
+        cvChapterTray = new CanvasHoverTray(new GuiTransform(GuiAlign.LEFT_EDGE, new GuiPadding(40, 24, -24, 8), -1), new GuiTransform(GuiAlign.LEFT_EDGE, new GuiPadding(40, 24, -40 - 150 - 24, 8), -1), PresetTexture.PANEL_INNER.getTexture());
         cvChapterTray.setManualOpen(true);
         cvChapterTray.setOpenAction(() -> {
             cvDescTray.setTrayState(false, 200);
+            cvFrame.setTrayState(false, 200);
             buildChapterList();
         });
         cvBackground.addPanel(cvChapterTray);
@@ -148,15 +167,17 @@ public class GuiQuestLines extends GuiScreenCanvas implements IPEventListener, I
         
         // === DESCRIPTION TRAY ===
         
-        cvDescTray = new CanvasHoverTray(new GuiTransform(GuiAlign.LEFT_EDGE, new GuiPadding(40, 24, -24, 8), -1), new GuiTransform(GuiAlign.LEFT_EDGE, new GuiPadding(40, 24, -40 - 150 - 24, 8), -1), PresetTexture.PANEL_MAIN.getTexture());
+        boolean oldState2 = trayLock && cvDescTray != null && cvDescTray.isTrayOpen();
+        cvDescTray = new CanvasHoverTray(new GuiTransform(GuiAlign.LEFT_EDGE, new GuiPadding(40, 24, -24, 8), -1), new GuiTransform(GuiAlign.LEFT_EDGE, new GuiPadding(40, 24, -40 - 150 - 24, 8), -1), PresetTexture.PANEL_INNER.getTexture());
         cvDescTray.setManualOpen(true);
         cvDescTray.setOpenAction(() -> {
             cvChapterTray.setTrayState(false, 200);
+            cvFrame.setTrayState(false, 200);
             cvDesc.resetCanvas();
             if(selectedLine != null)
             {
                 txDesc = new PanelTextBox(new GuiRectangle(0, 0, cvDesc.getTransform().getWidth(), 0, 0), QuestTranslation.translate(selectedLine.getUnlocalisedDescription()), true);
-                txDesc.setColor(PresetColor.TEXT_MAIN.getColor());//.setFontSize(10);
+                txDesc.setColor(PresetColor.TEXT_AUX_0.getColor());//.setFontSize(10);
                 cvDesc.addCulledPanel(txDesc, false);
                 cvDesc.refreshScrollBounds();
                 scDesc.setEnabled(cvDesc.getScrollBounds().getHeight() > 0);
@@ -179,6 +200,7 @@ public class GuiQuestLines extends GuiScreenCanvas implements IPEventListener, I
         PanelButton btnTrayToggle = new PanelButton(new GuiTransform(GuiAlign.TOP_LEFT, 8, 24, 32, 16, 0), -1, "");
         btnTrayToggle.setIcon(PresetIcon.ICON_BOOKMARK.getTexture(), selectedLineId < 0 ? new GuiColorPulse(0xFFFFFFFF, 0xFF444444, 2F, 0F) : new GuiColorStatic(0xFFFFFFFF), 0);
         btnTrayToggle.setClickAction((b) -> {
+            cvFrame.setTrayState(cvChapterTray.isTrayOpen(), 200);
             cvChapterTray.setTrayState(!cvChapterTray.isTrayOpen(), 200);
             btnTrayToggle.setIcon(PresetIcon.ICON_BOOKMARK.getTexture());
         });
@@ -186,7 +208,10 @@ public class GuiQuestLines extends GuiScreenCanvas implements IPEventListener, I
         cvBackground.addPanel(btnTrayToggle);
         
         PanelButton btnDescToggle = new PanelButton(new GuiTransform(GuiAlign.TOP_LEFT, 8, 40, 32, 16, 0), -1, "").setIcon(PresetIcon.ICON_DESC.getTexture());
-        btnDescToggle.setClickAction((b) -> cvDescTray.setTrayState(!cvDescTray.isTrayOpen(), 200));
+        btnDescToggle.setClickAction((b) -> {
+            cvFrame.setTrayState(cvDescTray.isTrayOpen(), 200);
+            cvDescTray.setTrayState(!cvDescTray.isTrayOpen(), 200);
+        });
         btnDescToggle.setTooltip(Collections.singletonList(QuestTranslation.translate("betterquesting.gui.description")));
         cvBackground.addPanel(btnDescToggle);
         
@@ -221,10 +246,16 @@ public class GuiQuestLines extends GuiScreenCanvas implements IPEventListener, I
         claimAll.setTooltip(Collections.singletonList(QuestTranslation.translate("betterquesting.btn.claim_all")));
         cvBackground.addPanel(claimAll);
         
-        // === CHAPTER VIEWPORT ===
+        // The Jester1147 button
+        PanelButton btnTrayLock = new PanelButton(new GuiTransform(GuiAlign.TOP_LEFT, 8, 88, 32, 16, -2), -1, "").setIcon(trayLock ? PresetIcon.ICON_LOCKED.getTexture() : PresetIcon.ICON_UNLOCKED.getTexture());
+        btnTrayLock.setClickAction((b) -> {
+            trayLock = !trayLock;
+            b.setIcon(trayLock ? PresetIcon.ICON_LOCKED.getTexture() : PresetIcon.ICON_UNLOCKED.getTexture());
+        });
+        btnTrayLock.setTooltip(Collections.singletonList(QuestTranslation.translate("betterquesting.btn.lock_tray")));
+        cvBackground.addPanel(btnTrayLock);
         
-        CanvasTextured cvFrame = new CanvasTextured(new GuiTransform(GuiAlign.FULL_BOX, new GuiPadding(40, 24, 8, 8), 0), PresetTexture.AUX_FRAME_0.getTexture());
-        cvBackground.addPanel(cvFrame);
+        // === CHAPTER VIEWPORT ===
         
         CanvasQuestLine oldCvQuest = cvQuest;
         cvQuest = new CanvasQuestLine(new GuiTransform(GuiAlign.FULL_BOX, new GuiPadding(0, 0, 0, 0), 0), 2);
@@ -248,6 +279,9 @@ public class GuiQuestLines extends GuiScreenCanvas implements IPEventListener, I
         }
         
         // === MISC ===
+        
+        cvChapterTray.setTrayState(oldState1, 1);
+        cvDescTray.setTrayState(oldState2, 1);
         
         refreshChapterVisibility();
         refreshClaimAll();
@@ -338,6 +372,7 @@ public class GuiQuestLines extends GuiScreenCanvas implements IPEventListener, I
     private void buildChapterList()
     {
         cvLines.resetCanvas();
+        btnListRef.clear();
         
         int listW = cvLines.getTransform().getWidth();
         
@@ -357,17 +392,25 @@ public class GuiQuestLines extends GuiScreenCanvas implements IPEventListener, I
             }
             PanelButtonStorage<DBEntry<IQuestLine>> btnLine = new PanelButtonStorage<>(new GuiRectangle(16, n * 16, listW - 16, 16, 0), 1, QuestTranslation.translate(entry.getValue().getUnlocalisedName()), entry);
             btnLine.setTextAlignment(0);
-            btnLine.setActive((vis & 4) == 0);
+            btnLine.setActive((vis & 4) == 0 && entry.getID() != selectedLineId);
             btnLine.setCallback((q) -> {
+                btnListRef.forEach((b) -> {if(b.getStoredValue().getID() == selectedLineId) b.setActive(true);});
+                btnLine.setActive(false);
                 selectedLine = q.getValue();
                 selectedLineId = q.getID();
                 cvQuest.setQuestLine(q.getValue());
                 icoChapter.setTexture(new OreDictTexture(1F, q.getValue().getProperty(NativeProps.ICON), false, true), null);
                 txTitle.setText(QuestTranslation.translate(q.getValue().getUnlocalisedName()));
-                cvChapterTray.setTrayState(false, 200);
+                if(!trayLock)
+                {
+                    cvFrame.setTrayState(true, 200);
+                    cvChapterTray.setTrayState(false, 200);
+                    cvQuest.fitToWindow();
+                }
                 refreshClaimAll();
             });
             cvLines.addPanel(btnLine);
+            btnListRef.add(btnLine);
         }
         
         cvLines.refreshScrollBounds();

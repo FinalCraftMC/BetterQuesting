@@ -185,6 +185,7 @@ public class RenderUtils
 	        GlStateManager.disableTexture2D();
 	        OpenGlHelper.setActiveTexture(OpenGlHelper.defaultTexUnit);
 	        GlStateManager.enableTexture2D(); // Breaks subsequent text rendering if not included
+            GlStateManager.disableColorMaterial();
     	} catch(Exception e)
     	{
     		// Hides rendering errors with entities which are common for invalid/technical entities
@@ -261,6 +262,9 @@ public class RenderUtils
 			
 			idxStart += noFormat.get(i).length();
 		}
+		
+		// Text rendering is very vulnerable to colour leaking
+        GlStateManager.color(1F, 1F, 1F, 1F);
 		
 		for(int i = start; i <= end; i++)
 		{
@@ -391,7 +395,7 @@ public class RenderUtils
         GlStateManager.disableTexture2D();
         GlStateManager.tryBlendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
         color.applyGlColor();
-        vertexbuffer.begin(7, DefaultVertexFormats.POSITION);
+        vertexbuffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION);
         vertexbuffer.pos((double)rect.getX(), (double)rect.getY() + rect.getHeight(), 0.0D).endVertex();
         vertexbuffer.pos((double)rect.getX() + rect.getWidth(), (double)rect.getY() + rect.getHeight(), 0.0D).endVertex();
         vertexbuffer.pos((double)rect.getX() + rect.getWidth(), (double)rect.getY(), 0.0D).endVertex();

@@ -62,7 +62,13 @@ public class NetQuestSync
         }
     }
     
+    @Deprecated
     public static void sendSync(@Nullable EntityPlayerMP player, @Nullable int[] questIDs, boolean config, boolean progress)
+    {
+        sendSync(player, questIDs, null, config, progress);
+    }
+    
+    public static void sendSync(@Nullable EntityPlayerMP player, @Nullable int[] questIDs, @Nullable int[] resetIDs, boolean config, boolean progress)
     {
         if((!config && !progress) || (questIDs != null && questIDs.length <= 0)) return;
         
@@ -78,6 +84,7 @@ public class NetQuestSync
                 
                 if(config) tag.setTag("config", entry.getValue().writeToNBT(new NBTTagCompound()));
                 if(progress) tag.setTag("progress", entry.getValue().writeProgressToNBT(new NBTTagCompound(), pidList));
+                if(resetIDs != null) tag.setIntArray("resets", resetIDs);
                 tag.setInteger("questID", entry.getID());
                 dataList.appendTag(tag);
             }
@@ -118,7 +125,8 @@ public class NetQuestSync
     private static void onClient(NBTTagCompound message)
     {
         NBTTagList data = message.getTagList("data", 10);
-        if(!message.getBoolean("merge")) QuestDatabase.INSTANCE.reset();
+        boolean merge = message.getBoolean("merge");
+        if(!merge) QuestDatabase.INSTANCE.reset();
         
         for(int i = 0; i < data.tagCount(); i++)
         {
@@ -138,7 +146,7 @@ public class NetQuestSync
             {
                 // TODO: Fix this properly
                 // If there we're not running the LAN server off this client then we overwrite always
-                quest.readProgressFromNBT(tag.getCompoundTag("progress"), !Minecraft.getMinecraft().isIntegratedServerRunning());
+                quest.readProgressFromNBT(tag.getCompoundTag("progress"), merge || Minecraft.getMinecraft().isIntegratedServerRunning());
             }
         }
         
