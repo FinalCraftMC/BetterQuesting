@@ -38,10 +38,8 @@ public class QuestNotification
 	@SubscribeEvent
 	public void onDrawScreen(RenderGameOverlayEvent.Post event)
 	{
-		if(event.type != RenderGameOverlayEvent.ElementType.HELMET || notices.size() <= 0)
-		{
-			return;
-		}
+		if(event.type != RenderGameOverlayEvent.ElementType.HELMET) return;
+		if(notices.size() <= 0) return;
 		
 		if(notices.size() >= 20 || !BQ_Settings.questNotices)
 		{

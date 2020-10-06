@@ -11,10 +11,6 @@ import betterquesting.api2.cache.QuestCache;
 import betterquesting.api2.client.gui.GuiContainerCanvas;
 import betterquesting.api2.client.gui.controls.IPanelButton;
 import betterquesting.api2.client.gui.controls.PanelButton;
-import betterquesting.api2.client.gui.events.IPEventListener;
-import betterquesting.api2.client.gui.events.PEventBroadcaster;
-import betterquesting.api2.client.gui.events.PanelEvent;
-import betterquesting.api2.client.gui.events.types.PEventButton;
 import betterquesting.api2.client.gui.misc.GuiAlign;
 import betterquesting.api2.client.gui.misc.GuiPadding;
 import betterquesting.api2.client.gui.misc.GuiTransform;
@@ -30,6 +26,7 @@ import betterquesting.api2.client.gui.themes.presets.PresetTexture;
 import betterquesting.api2.storage.DBEntry;
 import betterquesting.api2.utils.QuestTranslation;
 import betterquesting.blocks.TileSubmitStation;
+import betterquesting.network.handlers.NetStationEdit;
 import betterquesting.questing.QuestDatabase;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -37,10 +34,10 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.util.vector.Vector4f;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 
-public class GuiSubmitStation extends GuiContainerCanvas implements IPEventListener, INeedsRefresh
+public class GuiSubmitStation extends GuiContainerCanvas implements INeedsRefresh
 {
     private final ContainerSubmitStation ssContainer;
     private final TileSubmitStation tile;
@@ -78,6 +75,7 @@ public class GuiSubmitStation extends GuiContainerCanvas implements IPEventListe
         quests.clear();
         QuestCache qc = (QuestCache)mc.thePlayer.getExtendedProperties(QuestCache.LOC_QUEST_CACHE.toString());
         if(qc != null) quests.addAll(QuestDatabase.INSTANCE.bulkLookup(qc.getActiveQuests()));
+        filterQuests();
         
         refreshTaskPanel();
     }
@@ -86,14 +84,14 @@ public class GuiSubmitStation extends GuiContainerCanvas implements IPEventListe
     public void initPanel()
     {
         super.initPanel();
-    
-        PEventBroadcaster.INSTANCE.register(this, PEventButton.class);
+        
         Keyboard.enableRepeatEvents(true);
     
         quests.clear();
         taskPanel = null;
         QuestCache qc = (QuestCache)mc.thePlayer.getExtendedProperties(QuestCache.LOC_QUEST_CACHE.toString());
         if(qc != null) quests.addAll(QuestDatabase.INSTANCE.bulkLookup(qc.getActiveQuests()));
+        filterQuests();
         
         // Background panel
         cvBackground = new CanvasTextured(new GuiTransform(GuiAlign.FULL_BOX, new GuiPadding(0, 0, 0, 0), 0), PresetTexture.PANEL_MAIN.getTexture());
@@ -103,7 +101,7 @@ public class GuiSubmitStation extends GuiContainerCanvas implements IPEventListe
         txtTitle.setColor(PresetColor.TEXT_HEADER.getColor());
         cvBackground.addPanel(txtTitle);
     
-        cvBackground.addPanel(new PanelButton(new GuiTransform(GuiAlign.BOTTOM_CENTER, -100, -16, 200, 16, 0), 0, QuestTranslation.translate("gui.done")));
+        cvBackground.addPanel(new PanelButton(new GuiTransform(GuiAlign.BOTTOM_CENTER, -100, -16, 200, 16, 0), 0, QuestTranslation.translate("gui.done")).setClickAction((b) -> mc.displayGuiScreen(parent)));
         
         btnQstLeft = new PanelButton(new GuiTransform(new Vector4f(0.5F, 0F, 0.5F, 0F), 8, 32, 16, 16, 0), -1, "")
         {
@@ -159,7 +157,7 @@ public class GuiSubmitStation extends GuiContainerCanvas implements IPEventListe
             public void onButtonClick()
             {
                 tile.setupTask(QuestingAPI.getQuestingUUID(mc.thePlayer), quests.get(selQuest).getValue(), tasks.get(selTask).getValue());
-                tile.SyncTile(null);
+                NetStationEdit.setupStation(tile.xCoord, tile.yCoord, tile.zCoord, selQuest, selTask);
                 refreshTaskPanel();
             }
         };
@@ -172,7 +170,7 @@ public class GuiSubmitStation extends GuiContainerCanvas implements IPEventListe
             public void onButtonClick()
             {
                 tile.reset();
-                tile.SyncTile(null);
+                NetStationEdit.resetStation(tile.xCoord, tile.yCoord, tile.zCoord);
                 refreshTaskPanel();
             }
         };
@@ -212,24 +210,27 @@ public class GuiSubmitStation extends GuiContainerCanvas implements IPEventListe
         this.addPanel(new PanelGeneric(new GuiTransform(GuiAlign.TOP_LEFT, x + 72, y, 18, 18, -1), PresetIcon.ICON_RIGHT.getTexture()));
         this.addPanel(new PanelGeneric(new GuiTransform(GuiAlign.TOP_LEFT, x + 90, y, 18, 18, -1), PresetTexture.ITEM_FRAME.getTexture()));
     }
-	
-	@Override
-	public void onPanelEvent(PanelEvent event)
-	{
-		if(event instanceof PEventButton)
-		{
-			onButtonPress((PEventButton)event);
-		}
-	}
-	
-	@SuppressWarnings("unchecked")
-	private void onButtonPress(PEventButton event)
+    
+    private void filterQuests()
     {
-        IPanelButton btn = event.getButton();
+        Iterator<DBEntry<IQuest>> iter = quests.iterator();
         
-        if(btn.getButtonID() == 0) // Exit
+        while(iter.hasNext())
         {
-            mc.displayGuiScreen(this.parent);
+            DBEntry<IQuest> entry = iter.next();
+            
+            boolean valid = false;
+            
+            for(DBEntry<ITask> tsk : entry.getValue().getTasks().getEntries())
+            {
+                if(tsk.getValue() instanceof IItemTask || tsk.getValue() instanceof IFluidTask)
+                {
+                    valid = true;
+                    break;
+                }
+            }
+            
+            if(!valid) iter.remove();
         }
     }
     
@@ -254,10 +255,10 @@ public class GuiSubmitStation extends GuiContainerCanvas implements IPEventListe
             
             if(qdbe != null)
             {
-                DBEntry<ITask>[] tmpTasks = qdbe.getValue().getTasks().getEntries();
-                for(int i = 0; i < tmpTasks.length; i++)
+                List<DBEntry<ITask>> tmpTasks = qdbe.getValue().getTasks().getEntries();
+                for(int i = 0; i < tmpTasks.size(); i++)
                 {
-                    if(tmpTasks[i].getID() == tile.taskID)
+                    if(tmpTasks.get(i).getID() == tile.taskID)
                     {
                         selTask = i;
                         break;
@@ -296,7 +297,7 @@ public class GuiSubmitStation extends GuiContainerCanvas implements IPEventListe
         txtQstTitle.setText(QuestTranslation.translate(entry.getValue().getProperty(NativeProps.NAME)));
         
         tasks.clear();
-        Collections.addAll(tasks, entry.getValue().getTasks().getEntries());
+        tasks.addAll(entry.getValue().getTasks().getEntries());
         
         if(tasks.size() <= 0)
         {
@@ -309,7 +310,7 @@ public class GuiSubmitStation extends GuiContainerCanvas implements IPEventListe
         txtTskTitle.setText(QuestTranslation.translate(curTask.getValue().getUnlocalisedName()));
         btnSet.setActive(!tile.isSetup() && (curTask.getValue() instanceof IItemTask || curTask.getValue() instanceof IFluidTask));
         
-        taskPanel = curTask.getValue().getTaskGui(new GuiTransform(GuiAlign.HALF_RIGHT, new GuiPadding(8, 88, 16, 24), 0), entry.getValue());
+        taskPanel = curTask.getValue().getTaskGui(new GuiTransform(GuiAlign.HALF_RIGHT, new GuiPadding(8, 88, 16, 24), 0), entry);
         if(taskPanel != null) cvBackground.addPanel(taskPanel);
     }
     
