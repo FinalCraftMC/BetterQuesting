@@ -1,15 +1,13 @@
 package betterquesting.blocks;
 
-import betterquesting.api.network.QuestingPacket;
 import betterquesting.api.properties.NativeProps;
 import betterquesting.api.questing.IQuest;
 import betterquesting.api.questing.tasks.IFluidTask;
 import betterquesting.api.questing.tasks.IItemTask;
 import betterquesting.api.questing.tasks.ITask;
 import betterquesting.api2.cache.QuestCache;
+import betterquesting.api2.storage.DBEntry;
 import betterquesting.core.BetterQuesting;
-import betterquesting.network.PacketSender;
-import betterquesting.network.PacketTypeNative;
 import betterquesting.questing.QuestDatabase;
 import betterquesting.storage.QuestSettings;
 import net.minecraft.entity.player.EntityPlayer;
@@ -36,11 +34,11 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
 {
 	private ItemStack[] itemStack = new ItemStack[2];
 	private boolean needsUpdate = false;
-	public UUID owner;
-	public int questID;
-	public int taskID;
+	public UUID owner = null;
+	public int questID = -1;
+	public int taskID = -1;
 	
-	private IQuest qCached;
+	private DBEntry<IQuest> qCached;
 	
 	@SuppressWarnings("WeakerAccess")
     public TileSubmitStation()
@@ -48,30 +46,25 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
 		super();
 	}
 	
-	public IQuest getQuest()
+	public DBEntry<IQuest> getQuest()
 	{
-		if(questID < 0)
-		{
-			return null;
-		} else
-		{
-		    if(qCached == null) qCached = QuestDatabase.INSTANCE.getValue(questID);
-			return qCached;
-		}
+		if(questID < 0) return null;
+		
+		if(qCached == null)
+        {
+            IQuest tmp = QuestDatabase.INSTANCE.getValue(questID);
+            if(tmp != null) qCached = new DBEntry<>(questID, tmp);
+        }
+		
+        return qCached;
 	}
 	
 	@SuppressWarnings("WeakerAccess")
     public ITask getRawTask()
 	{
-		IQuest q = getQuest();
-		
-		if(q == null || taskID < 0)
-		{
-			return null;
-		} else
-		{
-			return q.getTasks().getValue(taskID);
-		}
+		DBEntry<IQuest> q = getQuest();
+		if(q == null || taskID < 0) return null;
+		return q.getValue().getTasks().getValue(taskID);
 	}
 	
 	@SuppressWarnings("WeakerAccess")
@@ -168,8 +161,7 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
 	@Override
 	public boolean isUseableByPlayer(EntityPlayer player)
 	{
-        return owner == null || player.getUniqueID().equals(owner);
-        
+        return (owner == null || player.getUniqueID().equals(owner)) && player.getDistanceSq(this.xCoord, this.yCoord, this.zCoord) < 256;
     }
 
 	@Override
@@ -267,7 +259,7 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
 		if(wtt%10 == 0 && owner != null)
 		{
 		    if(wtt%20 == 0) qCached = null; // Reset and lookup quest again once every second
-            IQuest q = getQuest();
+            DBEntry<IQuest> q = getQuest();
             IItemTask t = getItemTask();
             MinecraftServer server = MinecraftServer.getServer();
             EntityPlayerMP player = getPlayerByUUID(owner);
@@ -338,7 +330,7 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
 		}
 		
 		this.questID = QuestDatabase.INSTANCE.getID(quest);
-		this.qCached = quest;
+		this.qCached = new DBEntry<>(questID, quest);
 		this.taskID = quest.getTasks().getID(task);
 		
 		if(this.questID < 0 || this.taskID < 0)
@@ -364,7 +356,7 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
 		qCached = null;
 		this.markDirty();
 	}
-
+    
     /**
      * Overridden in a sign to provide the text.
      */
@@ -376,7 +368,7 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
         this.writeToNBT(nbtTagCompound);
         return new S35PacketUpdateTileEntity(xCoord, yCoord, zCoord, 0, nbtTagCompound);
     }
-
+    
     /**
      * Called when you receive a TileEntityData packet for the location this
      * TileEntity is currently in. On the client, the NetworkManager will always
@@ -390,27 +382,6 @@ public class TileSubmitStation extends TileEntity implements IFluidHandler, ISid
     public void onDataPacket(NetworkManager net, S35PacketUpdateTileEntity pkt)
     {
     	this.readFromNBT(pkt.func_148857_g());
-    }
-    
-    /**
-     * Ignores parameter on client side (uses own data instead)
-     */
-    public void SyncTile(NBTTagCompound data)
-    {
-    	if(!worldObj.isRemote)
-    	{
-    		if(data != null) this.readFromNBT(data); // Note: The handler has already read out the "tile" subtag in advance
-    		this.markDirty();
-    		MinecraftServer server = MinecraftServer.getServer();
-    		if(server != null) server.getConfigurationManager().sendToAllNearExcept(null, xCoord, yCoord, zCoord, 128, worldObj.provider.dimensionId, getDescriptionPacket());
-    	} else
-    	{
-    		NBTTagCompound payload = new NBTTagCompound();
-    		NBTTagCompound tileData = new NBTTagCompound();
-    		this.writeToNBT(tileData);
-    		payload.setTag("tile", tileData);
-    		PacketSender.INSTANCE.sendToServer(new QuestingPacket(PacketTypeNative.EDIT_STATION.GetLocation(), payload));
-    	}
     }
 	
 	@Override
